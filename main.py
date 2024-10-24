@@ -4,6 +4,186 @@ import data.db_helper as db_helper  # Импортируем наш db_helper с
 import os
 import time
 import shutil
+import pandas as pd
+import openpyxl
+import multiprocessing
+import logging
+import os
+
+import subprocess
+import app.appm as appm
+import app.appmc as appmc
+import app.appp as appp
+import app.apppc as apppc
+import app.apprzm as apprzm
+import app.apprzfm as apprzfm
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', filename='app_log.log')
+processes = []
+
+
+
+
+def worker_process(log_queue):
+    """Запуск функции из appm.py в процессе и передача логов через очередь."""
+    try:
+        log_queue.put("Процесс запущен.")
+        appm.my_function(log_queue)  # Передаем очередь в my_function
+        log_queue.put("Процесс завершен успешно.")
+    except Exception as e:
+        log_queue.put(f"Ошибка в процессе: {str(e)}")
+
+def start_fill_process(log_output, stream_count_value,  fill_type_value, description_value, bio_value, usernames_value, nicknames_value,hashtags_value, marks_value, ava_value, bizz_value,uniq_value,hashtag_count_value):
+    log_queue = multiprocessing.Queue()
+    log_queue.put("Процесс запущен.")
+    print(fill_type_value)
+    try:
+        if int(fill_type_value) == 1:
+            log_queue.put("Вы выбрали залив видео, аккаунты обычные.")
+            # Запускаем процессы
+            for i in range(stream_count_value):
+                p = multiprocessing.Process(
+                    target=appm.my_function,
+                    args=(log_queue, i),  # Передаем очередь в процессы
+                    name=f"Process-{i}"
+                )
+                processes.append(p)
+                p.start()
+                log_output.value += f"Запущен {p.name}\n"
+                log_output.update()
+        elif int(fill_type_value) == 2:
+            log_queue.put("Вы выбрали залив видео, аккаунты куки.")
+            # Запускаем процессы
+            for i in range(stream_count_value):
+                p = multiprocessing.Process(
+                    target=appm.my_function,
+                    args=(log_queue, i),  # Передаем очередь в процессы
+                    name=f"Process-{i}"
+                )
+                processes.append(p)
+                p.start()
+                log_output.value += f"Запущен {p.name}\n"
+                log_output.update()
+        elif int(fill_type_value) == 3:
+            log_queue.put("Вы выбрали залив каруселей, аккаунты обычные.")
+            # Запускаем процессы
+            for i in range(stream_count_value):
+                p = multiprocessing.Process(
+                    target=appm.my_function,
+                    args=(log_queue, i),  # Передаем очередь в процессы
+                    name=f"Process-{i}"
+                )
+                processes.append(p)
+                p.start()
+                log_output.value += f"Запущен {p.name}\n"
+                log_output.update()
+        elif int(fill_type_value) == 4:
+            log_queue.put("Вы выбрали залив каруселей, аккаунты куки.")
+            # Запускаем процессы
+            for i in range(stream_count_value):
+                p = multiprocessing.Process(
+                    target=appm.my_function,
+                    args=(log_queue, i),  # Передаем очередь в процессы
+                    name=f"Process-{i}"
+                )
+                processes.append(p)
+                p.start()
+                log_output.value += f"Запущен {p.name}\n"
+                log_output.update()
+        elif int(fill_type_value) == 5:
+            log_queue.put("Вы выбрали залив через регистрацию вашей почты, аккаунты куки.")
+            # Запускаем процессы
+            for i in range(stream_count_value):
+                p = multiprocessing.Process(
+                    target=apprzm.my_function,
+                    args=(log_queue, i),  # Передаем очередь в процессы
+                    name=f"Process-{i}"
+                )
+                processes.append(p)
+                p.start()
+                log_output.value += f"Запущен {p.name}\n"
+                log_output.update()
+        elif int(fill_type_value) == 6:
+            log_queue.put("Вы выбрали залив через регистрацию фейковых аккаунтов, аккаунты куки.")
+            # Запускаем процессы
+            for i in range(stream_count_value):
+                p = multiprocessing.Process(
+                    target=apprzfm.my_function,
+                    args=(log_queue, i),  # Передаем очередь в процессы
+                    name=f"Process-{i}"
+                )
+                processes.append(p)
+                p.start()
+                log_output.value += f"Запущен {p.name}\n"
+                log_output.update()
+                time.sleep(5)
+        else:
+            log_queue.put("Ошибка")
+        # Асинхронно считываем логи из очереди
+        while any(p.is_alive() for p in processes):
+            while not log_queue.empty():
+                log_message = log_queue.get()
+                log_output.value += f"{log_message}\n"
+                log_output.update()
+            time.sleep(0.1)
+
+        # Ожидаем завершения всех процессов
+        for p in processes:
+            p.join()
+
+        print(1234554321)
+
+
+
+    except Exception as e:
+            log_output.value += f"Ошибка: {str(e)}\n"
+            log_output.update()
+
+def show_log_window(page, stream_count_value,  fill_type_value, description_value, bio_value, usernames_value, nicknames_value,hashtags_value, marks_value, ava_value, bizz_value,uniq_value,hashtag_count_value):
+    """Функция для отображения окна логов"""
+
+    log_output = ft.Text(value="", width=900, height=900, color=ft.colors.WHITE)
+
+    # Создаем контейнер с логами и включаем скроллинг
+    scrollable_container = ft.Container(
+        content=ft.Column(
+            [log_output],
+            scroll=ft.ScrollMode.AUTO  # Включаем автоматическую прокрутку
+        ),
+        width=900,
+        height=900
+    )
+
+    # Создаем модальное окно
+    modal = ft.AlertDialog(
+        modal=True,
+        title=ft.Text("Логи процессов. Чтобы остановить работу нажмите кнопку закрыть"),
+        content=scrollable_container,
+        actions=[ft.TextButton("Закрыть", on_click=lambda e: close_modal(modal, page))],
+        actions_alignment=ft.MainAxisAlignment.CENTER
+    )
+
+    page.overlay.append(modal)
+    modal.open = True
+    page.update()
+
+    # Запускаем процесс и выводим логи в модальное окно
+    start_fill_process(log_output, stream_count_value,  fill_type_value, description_value, bio_value, usernames_value, nicknames_value,hashtags_value, marks_value, ava_value, bizz_value,uniq_value,hashtag_count_value)
+
+def kill_all_processes():
+    """Функция для завершения всех процессов."""
+    global processes
+    for p in processes:
+        if p.is_alive():
+            p.terminate()  # Завершаем процесс
+            p.join()  # Ожидаем завершения
+    processes.clear()  # Очищаем список процессов после завершения
+
+def close_modal(modal, page):
+    """Закрытие модального окна и завершение всех процессов"""
+    asyncio.run(db_helper.update_single_video_status_back_all())
+    kill_all_processes()  # Завершаем все процессы перед закрытием окна
+    modal.open = False
+    page.update()
 
 def main(page: ft.Page):
     # Инициализация базы данных
@@ -664,17 +844,24 @@ def main(page: ft.Page):
     def show_main_page():
         page.views.clear()
 
+        def on_profile_click(e):
+            show_profile_modal()
+
         def on_settings_click(e):
             show_config_fill_page()
 
         def on_fill_click(e):
             show_fill_page()
 
-        def on_contact_click(e):
-            show_contact_page()
+
 
         # Кнопка для загрузки юзернеймов из файла
 
+        profile_button = ft.ElevatedButton(
+            "Профиль",
+            on_click=on_profile_click,
+            color=ft.colors.WHITE
+        )
 
         settings_button = ft.ElevatedButton(
             "Настройка конфига",
@@ -686,13 +873,9 @@ def main(page: ft.Page):
             on_click=on_fill_click,
             color=ft.colors.WHITE
         )
-        contact_button = ft.ElevatedButton(
-            "Связь",
-            on_click=on_contact_click,
-            color=ft.colors.WHITE
-        )
 
-        image = ft.Image(src="resources/jpeg.png", width=150, height=150, fit=ft.ImageFit.CONTAIN)
+
+        image = ft.Image(src="resources/logo.jpg", width=150, height=150, fit=ft.ImageFit.CONTAIN)
 
         page.views.append(
             ft.View(
@@ -703,9 +886,9 @@ def main(page: ft.Page):
                             [
                                 ft.Text('Главное меню', size=42),
                                 image,
+                                ft.Container(profile_button, width=200, height=50),
                                 ft.Container(settings_button, width=200, height=50),
                                 ft.Container(fill_button, width=200, height=50),
-                                ft.Container(contact_button, width=200, height=50),
                             ],
                             alignment=ft.MainAxisAlignment.CENTER,
                             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -856,19 +1039,101 @@ def main(page: ft.Page):
         modal.open = True
         page.update()
 
+    def show_email_modal(page):
+        file_path = None  # Переменная для хранения пути к файлу
+
+        # Функция для обработки загрузки файла
+        def on_file_upload(e):
+            nonlocal file_path
+            file_picker = e.control
+            if file_picker.result and file_picker.result.files:
+                file_path = file_picker.result.files[0].path  # Сохраняем путь к файлу
+                upload_status.value = f"Файл выбран: {file_path}"
+            else:
+                upload_status.value = "Файл не выбран"
+            page.update()
+
+        # Функция для сохранения почт в базу данных
+        def on_save_click(e):
+            if file_path:
+                # Чтение файла и запись почт в базу данных
+                with open(file_path, "r") as file:
+                    emails = file.read().splitlines()  # Предполагаем, что каждая строка файла — это одна почта
+                    asyncio.run(db_helper.insert_emails(emails))
+                    show_modal_dialog("Загрузка завершена", f"Загружено {len(emails)} почт.")
+            else:
+                show_modal_dialog("Ошибка", "Файл не выбран. Пожалуйста, выберите файл.")
+
+        # Функция для просмотра всех почт
+        def on_view_emails_click(e):
+            emails = asyncio.run(db_helper.get_emails())
+            if emails:
+                emails_list = "\n".join(emails)
+                show_modal_dialog("Список почт", emails_list)
+            else:
+                show_modal_dialog("Список пуст", "В базе данных нет почт.")
+
+        # Функция для удаления всех почт
+        def on_delete_emails_click(e):
+            asyncio.run(db_helper.delete_all_emails())
+            show_modal_dialog("Удаление завершено", "Все почты удалены из базы данных.")
+
+        # Создание элемента выбора файла
+        file_picker = ft.FilePicker(on_result=on_file_upload)
+        page.overlay.append(file_picker)
+
+        # Статус загрузки
+        upload_status = ft.Text("Файл не выбран")
+
+        # Элементы модального окна
+        modal_content = ft.Column(
+            [
+                upload_status,
+                ft.ElevatedButton("Выбрать файл", on_click=lambda e: file_picker.pick_files(allow_multiple=False)),
+                ft.ElevatedButton("Сохранить", on_click=on_save_click),
+                ft.ElevatedButton("Посмотреть все почты", on_click=on_view_emails_click),
+                ft.ElevatedButton("Удалить все почты", on_click=on_delete_emails_click),
+            ],
+            alignment=ft.MainAxisAlignment.CENTER,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=10
+        )
+
+        # Создание модального окна
+        modal = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Управление почтами"),
+            content=ft.Container(content=modal_content, width=400, height=400),
+            actions=[ft.TextButton("Закрыть", on_click=lambda e: close_modal(modal))],
+            actions_alignment=ft.MainAxisAlignment.CENTER  # Центрирование кнопок действий
+        )
+
+        # Открыть модальное окно
+        page.overlay.append(modal)
+        modal.open = True
+        page.update()
+
     def show_accounts_modal(page):
         file_path = None
 
         # Получаем текущее значение типа аккаунта из базы данных при загрузке страницы
-        current_account_typ = asyncio.run(db_helper.get_current_account_type())  # Получаем текущее значение из базы
+        current_account_typ = asyncio.run(db_helper.get_current_account_type())
         current_account_type = current_account_typ[0][0]
-        print(current_account_type)
+
+        # Устанавливаем начальное значение на основе типа аккаунта
         if current_account_type == "TRUE":
             initial_value = "cookie"  # Если куки-аккаунты
         else:
             initial_value = "ordinary"  # Если обычные аккаунты
 
-        account_type_value = ft.Text(value=initial_value)  # Устанавливаем начальное значение на основе данных из базы
+        account_type_value = ft.Text(value=initial_value)
+
+        # Считаем количество обычных и куки-аккаунтов
+        ordinary_count = len(asyncio.run(db_helper.get_ordinary_accounts()))  # Количество обычных аккаунтов
+        cookie_count = len(asyncio.run(db_helper.get_cookie_accounts()))  # Количество куки-аккаунтов
+
+        # Отображаем счетчики аккаунтов
+        account_type_text = ft.Text(f"Обычные аккаунты: {ordinary_count}\nКуки-аккаунты: {cookie_count}")
 
         # Обработка изменения типа аккаунта
         def on_account_type_change(e):
@@ -888,7 +1153,7 @@ def main(page: ft.Page):
         # Сохранение выбранного типа аккаунта в базу данных
         def save_account_type_to_db():
             acc_type = "TRUE" if account_type_value.value == "cookie" else "FALSE"
-            asyncio.run(db_helper.update_accs_type(acc_type))  # Сохранение acc_type в базе данных
+            asyncio.run(db_helper.update_accs_type(acc_type))  # Сохраняем тип аккаунта в базу данных
 
         # Обработчик загрузки файла
         def on_file_upload(e):
@@ -905,23 +1170,26 @@ def main(page: ft.Page):
         def on_save_click(e):
             save_account_type_to_db()  # Сначала сохраняем тип аккаунта
             if file_path:
-                with open(file_path, "r") as file:
-                    accounts = file.read().splitlines()
+                # Если выбран файл txt, это обычные аккаунты
+                if file_path.endswith(".txt"):
+                    with open(file_path, "r") as file:
+                        accounts = file.read().splitlines()
 
+                    # Проверяем, какой тип аккаунта выбран
                     if account_type_value.value == "ordinary":
-                        asyncio.run(db_helper.insert_ordinary_accounts(accounts))
+                        asyncio.run(db_helper.insert_ordinary_accounts(accounts))  # Вставляем обычные аккаунты
                     else:
-                        # Обработка куки аккаунтов
-                        cookie_accounts = []
-                        for account in accounts:
-                            # Разбиваем строку по запятой, предполагаем, что первое значение - x_device, второе - x_cookie
-                            x_device, x_cookie = account.split(",")
-                            cookie_accounts.append((x_device.strip(), x_cookie.strip()))
+                        show_modal_dialog("Ошибка", "Вы выбрали куки-аккаунты, но файл содержит обычные аккаунты.")
 
-                        # Вставляем в базу данных куки аккаунты
-                        asyncio.run(db_helper.insert_cookie_accounts(cookie_accounts))
-
-                show_modal_dialog("Загрузка завершена", f"Загружено {len(accounts)} аккаунтов.")
+                # Если выбран файл Excel, это куки-аккаунты
+                elif file_path.endswith(".xlsx"):
+                    excel_data = pd.read_excel(file_path)
+                    cookie_accounts = [(row[0].strip(), row[1].strip()) for _, row in excel_data.iterrows()]
+                    asyncio.run(db_helper.insert_cookie_accounts(cookie_accounts))  # Вставляем куки-аккаунты
+                if file_path.endswith(".txt"):
+                    show_modal_dialog("Загрузка завершена", f"Загружено {len(accounts)} аккаунтов.")
+                else:
+                    show_modal_dialog("Загрузка завершена", f"Загружены аккаунты.")
             else:
                 show_modal_dialog("Ошибка", "Файл не выбран.")
 
@@ -951,6 +1219,7 @@ def main(page: ft.Page):
                 asyncio.run(db_helper.delete_all_cookie_accounts())
             show_modal_dialog("Удаление завершено", "Все аккаунты удалены.")
 
+        # Состояние загрузки файла
         upload_status = ft.Text("Файл не выбран")
         file_picker = ft.FilePicker(on_result=on_file_upload)
         page.overlay.append(file_picker)
@@ -958,18 +1227,24 @@ def main(page: ft.Page):
         # Содержимое модального окна
         modal_content = ft.Column(
             [
+                account_type_text,  # Счетчики аккаунтов
                 ft.Text("Выберите тип аккаунта:"),
                 rg,
-                ft.ElevatedButton("Подтвердить выбор", on_click=on_confirm_click),  # Кнопка подтверждения выбора
+                ft.ElevatedButton("Подтвердить выбор", on_click=on_confirm_click),
                 upload_status,
+                ft.ElevatedButton("Как добавлять аккаунты?",
+                                  on_click=lambda e: show_modal_dialog("Как добавлять аккаунты?",
+                                                                       "Обычные аккаунты: .txt файл\nКуки-аккаунты: .xlsx файл (x_device, x_cookie)")),
                 ft.ElevatedButton("Выбрать файл", on_click=lambda e: file_picker.pick_files(allow_multiple=False)),
                 ft.ElevatedButton("Сохранить аккаунты", on_click=on_save_click),
                 ft.ElevatedButton("Посмотреть аккаунты", on_click=on_view_accounts_click),
-                ft.ElevatedButton("Удалить все аккаунты", on_click=on_delete_accounts_click)
+                ft.ElevatedButton("Удалить все аккаунты", on_click=on_delete_accounts_click),
+
             ],
             alignment=ft.MainAxisAlignment.CENTER,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            spacing=10
+            spacing=10,
+            scroll=ft.ScrollMode.ALWAYS
         )
 
         modal = ft.AlertDialog(
@@ -1031,7 +1306,7 @@ def main(page: ft.Page):
                     # Запись в базу данных
                     asyncio.run(db_helper.insert_video(unique_name, save_location))
 
-                show_modal_dialog("Загрузка завершена", f"Сохранено {len(file_paths)} видео.")
+                show_modal_dialog("Загрузка завершена", f"Сохранено {len(unique_name)} видео.")
             else:
                 show_modal_dialog("Ошибка", "Файлы не выбраны.")
 
@@ -1489,6 +1764,16 @@ def main(page: ft.Page):
 
         page.update()
 
+
+
+
+
+
+
+
+
+
+
     def insert_geo(geo_code):
         asyncio.run(db_helper.insert_or_update_geo(geo_code))
         show_modal_dialog("Успех", f"Код страны {geo_code} успешно обновлен в базе данных.")
@@ -1496,20 +1781,23 @@ def main(page: ft.Page):
     # Функция для показа модального окна с выбором GEO
     def show_fill_page():
         # Переменные для потоков и выбранного типа заливов
-        stream_count = ft.TextField(label="Введите количество потоков", width=300)
+        stream_count = ft.TextField(label="Введите количество потоков", width=300, height=40)
         fill_type = ft.Dropdown(
             options=[
                 ft.dropdown.Option(key="1", text="Видео"),
                 ft.dropdown.Option(key="2", text="Видео Куки"),
-                ft.dropdown.Option(key="3", text="Фото"),
-                ft.dropdown.Option(key="4", text="Фото Куки"),
+                ft.dropdown.Option(key="5", text="Залив видео через регу "),
+                ft.dropdown.Option(key="6", text="Залив видео через фейк регу "),
             ],
+
             label="Выберите тип заливов",
-            width=300
+            width=300, height=40
         )
+        '''ft.dropdown.Option(key="3", text="Фото"),
+        ft.dropdown.Option(key="4", text="Фото Куки"),'''
 
         # Переменная для хранения состояния хэштегов
-        hashtag_count_field = ft.TextField(label="Введите количество хэштегов", visible=False, width=200)
+        hashtag_count_field = ft.TextField(label="Введите количество хэштегов (до 9)", visible=False, width=300, height=40)
 
         # Функция для показа/скрытия поля для хэштегов
         def on_hashtag_checked(e):
@@ -1531,6 +1819,7 @@ def main(page: ft.Page):
             ft.Checkbox(label="Отметки"),
             ft.Checkbox(label="Аватарка"),
             ft.Checkbox(label="Подключение биз. ссылки"),
+            ft.Checkbox(label="Уникализатор видео")
         ]
 
         # Функция обновления данных с базы
@@ -1555,12 +1844,13 @@ def main(page: ft.Page):
                 checkboxes[5].value = profile[7] == 1  # Для marks
                 checkboxes[6].value = profile[8] == 1  # Для ava
                 checkboxes[7].value = profile[9] == 1  # Для bizz
+                checkboxes[8].value = profile[10] == 1  # Для bizz
                 page.update()  # Обновляем страницу
 
         # Функция для сохранения настроек
         def save_settings():
             # Получение значений из полей ввода
-            stream_count_value = stream_count.value
+            stream_count_value = int(stream_count.value)
             fill_type_value = fill_type.value
 
             # Для чекбоксов сохраняйте 0 или 1 в зависимости от их состояния
@@ -1572,7 +1862,7 @@ def main(page: ft.Page):
             marks_value = 1 if checkboxes[5].value else 0
             ava_value = 1 if checkboxes[6].value else 0
             bizz_value = 1 if checkboxes[7].value else 0
-
+            uniq_value = 1 if checkboxes[8].value else 0
             # Получаем количество хэштегов, если чекбокс для хэштегов активен
             hashtag_count_value = int(hashtag_count_field.value) if hashtags_value == 1 else 0
 
@@ -1580,16 +1870,38 @@ def main(page: ft.Page):
             asyncio.run(db_helper.save_or_update_profile(
                 stream_count_value, fill_type_value, description_value, bio_value,
                 usernames_value, nicknames_value, marks_value, ava_value, bizz_value, hashtags_value,
-                hashtag_count_value
+                hashtag_count_value, uniq_value
             ))
             show_modal_dialog("Успешно!", "Настройки сохранены.")
 
+        def start_potok():
+            # Получение значений из полей ввода
+            stream_count_value = int(stream_count.value)
+            fill_type_value = fill_type.value
+
+            # Для чекбоксов сохраняйте 0 или 1 в зависимости от их состояния
+            description_value = 1 if checkboxes[0].value else 0
+            bio_value = 1 if checkboxes[1].value else 0
+            usernames_value = 1 if checkboxes[2].value else 0
+            nicknames_value = 1 if checkboxes[3].value else 0
+            hashtags_value = 1 if checkboxes[4].controls[0].value else 0
+            marks_value = 1 if checkboxes[5].value else 0
+            ava_value = 1 if checkboxes[6].value else 0
+            bizz_value = 1 if checkboxes[7].value else 0
+            uniq_value = 1 if checkboxes[8].value else 0
+            # Получаем количество хэштегов, если чекбокс для хэштегов активен
+            hashtag_count_value = int(hashtag_count_field.value) if hashtags_value == 1 else 0
+
+            show_log_window(page, stream_count_value,  fill_type_value, description_value, bio_value, usernames_value, nicknames_value,hashtags_value, marks_value, ava_value,
+                            bizz_value,uniq_value,hashtag_count_value)
+
+        log_output = ft.Text(value="", width=500, height=300, color=ft.colors.WHITE)
         # Кнопки "Запустить" и "Назад"
         fill_button = ft.ElevatedButton("Выгрузить настройки ⤴", on_click=on_fill_click, color=ft.colors.WHITE,
                                           width=250, height=30)
         save_button = ft.ElevatedButton("Сохранить настройки ⤵", on_click=lambda e: save_settings(), color=ft.colors.WHITE,
                                           width=250, height=30)
-        start_button = ft.ElevatedButton("Запустить", on_click=lambda e: start_fill_process(), color=ft.colors.WHITE,
+        start_button = ft.ElevatedButton("Запустить", on_click=lambda e: start_potok(), color=ft.colors.WHITE,
                                           width=250, height=30)
         back_button = ft.ElevatedButton("Назад", on_click=lambda e: show_main_page(), color=ft.colors.WHITE,
                                           width=250, height=30)
@@ -1621,9 +1933,9 @@ def main(page: ft.Page):
         )
         page.update()
 
-    def start_fill_process():
+    '''def start_fill_process():
         # Логика запуска процесса заливов
-        show_modal_dialog("Запуск", "Процесс заливов запущен.")
+        show_modal_dialog("Запуск", "Процесс заливов запущен.")'''
 
     def show_categories_modal(page, selected_biz_name):
         async def fetch_categories():
@@ -2008,20 +2320,45 @@ def main(page: ft.Page):
             ("Япония", "JP")
         ]
 
-        # Кнопки для каждой страны
-        geo_buttons = [
-            ft.ElevatedButton(f"{country} — {code}", on_click=lambda e, c=code: insert_geo(c))
-            for country, code in countries
-        ]
-        geo_cod = asyncio.run(db_helper.get_geo())
 
+        def insert_geo(geo_code):
+            asyncio.run(db_helper.insert_or_update_geo(geo_code))
+            show_modal_dialog("Успех", f"Код страны {geo_code} успешно обновлен в базе данных.")
+
+        search_field = ft.TextField(label="Поиск страны", on_change=lambda e: filter_buttons(e.control.value))
+
+        # Создаем начальный список кнопок для каждой страны
+        geo_buttons = []
+
+
+        def filter_buttons(search_query):
+            filtered_countries = [
+                (country, code) for country, code in countries if search_query.lower() in country.lower()
+            ]
+            update_buttons(filtered_countries)
+
+        def update_buttons(filtered_countries):
+            # Удаляем старые кнопки
+            geo_buttons.clear()  # Очищаем список кнопок
+
+            # Создаем новые кнопки на основе отфильтрованных стран
+            for country, code in filtered_countries:
+                button = ft.ElevatedButton(f"{country} — {code}", on_click=lambda e, c=code: insert_geo(c))
+                geo_buttons.append(button)
+
+            # Обновляем содержимое модального окна
+            modal_content.controls = [search_field] + geo_buttons
+            modal_content.update()  # Обновляем содержимое модального окна
+
+        geo_cod = asyncio.run(db_helper.get_geo())
         try:
             region = geo_cod[0][0]
-        except:
+        except IndexError:
             region = "Пуст"
+
         # Создание содержимого модального окна
         modal_content = ft.Column(
-            geo_buttons,
+            [search_field] + geo_buttons,
             alignment=ft.MainAxisAlignment.CENTER,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             spacing=10,
@@ -2032,7 +2369,7 @@ def main(page: ft.Page):
             modal=True,
             title=ft.Text(f"Выберите страну (Выбранный ГЕО: {region})"),
             content=ft.Container(content=modal_content, width=400, height=300),
-            actions=[ft.TextButton("Закрыть", on_click=lambda e: close_modal(modal))],
+            actions=[ft.TextButton("Закрыть", on_click=lambda e: modal.close())],
             actions_alignment=ft.MainAxisAlignment.CENTER
         )
 
@@ -2040,6 +2377,42 @@ def main(page: ft.Page):
         modal.open = True
         page.update()
     # Функция для настройки конфига залива
+    def show_profile_modal():
+        """Display the profile modal with the current token and option to update it."""
+
+        # Asynchronously retrieve the current token from the database
+        current_token = asyncio.run(db_helper.get_token())
+
+        token_field = ft.TextField(value=current_token, width=300, label="Текущий токен")
+        save_button = ft.ElevatedButton("Сохранить изменения", on_click=lambda e: save_token(token_field.value))
+        back_button = ft.ElevatedButton("Назад", on_click=lambda e: close_modal(modal))
+
+        modal_content = ft.Column(
+            [
+                ft.Text("Профиль"),
+                token_field,
+                save_button,
+                back_button,
+            ],
+            alignment=ft.MainAxisAlignment.CENTER,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
+        modal = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Профиль"),
+            content=modal_content,
+            actions_alignment=ft.MainAxisAlignment.CENTER,
+        )
+
+        page.overlay.append(modal)
+        modal.open = True
+        page.update()
+
+    def save_token(new_token):
+        """Save the new token to the database."""
+        asyncio.run(db_helper.update_token(new_token))
+        show_modal_dialog("Успешно", "Токен обновлен.")
     def show_config_fill_page():
         page.views.clear()
 
@@ -2074,9 +2447,19 @@ def main(page: ft.Page):
             on_click=lambda e: show_accounts_modal(page),
             color=ft.colors.WHITE, width=200, height=50
         )
+        MAIL_button = ft.ElevatedButton(
+            "Почты",
+            on_click=lambda e: show_email_modal(page),
+            color=ft.colors.WHITE, width=200, height=50
+        )
         CREO_button = ft.ElevatedButton(
             "Управление крео",
             on_click=lambda e: show_creo_management_page(),
+            color=ft.colors.WHITE, width=200, height=50
+        )
+        locale_button = ft.ElevatedButton(
+            "Locale",
+            on_click=lambda e: show_locale_modal(),
             color=ft.colors.WHITE, width=200, height=50
         )
 
@@ -2090,8 +2473,15 @@ def main(page: ft.Page):
                             [ft.Text(value='Настройка конфига', size=32, height=70),
 
                                 GEO_button,
-                                CREO_button,PROXY_button, ACC_button,
-                                config_fill_button, tik_tok_setting,
+                                CREO_button,PROXY_button,
+                                ft.Row(
+                                    controls=[
+                                        ACC_button,
+                                        MAIL_button
+                                    ],alignment=ft.MainAxisAlignment.CENTER,  # Выровняем кнопки по центру строки
+                                    spacing=10
+                                    ),
+                                config_fill_button, tik_tok_setting,locale_button,
                                 ft.Container(back_button, width=200, height=50)
                             ],
                             alignment=ft.MainAxisAlignment.CENTER,
@@ -2197,6 +2587,45 @@ def main(page: ft.Page):
         version_modal.open = True
         page.update()
 
+    def show_locale_modal():
+        try:
+            current_locale = asyncio.run(db_helper.get_current_locale())
+            if "-" in current_locale:
+                first_part, second_part = current_locale.split("-", 1)
+            else:
+                first_part, second_part = "", ""
+
+            # Creating the two TextFields
+            locale_part1 = ft.TextField(value=first_part, width=100, label="Language")
+            hyphen = ft.Text("-")
+            locale_part2 = ft.TextField(value=second_part, width=100, label="Country")
+
+            # Function to save the new locale
+            def save_locale(e):
+                new_locale = f"{locale_part1.value}-{locale_part2.value}"
+                asyncio.run(db_helper.update_locale(new_locale))
+                show_modal_dialog("Успешно", f"Locale обновлен на {new_locale}")
+
+            # Button to save changes
+            save_button = ft.ElevatedButton("Сохранить изменения", on_click=save_locale)
+
+            # Modal structure
+            modal_content = ft.Row(
+                [locale_part1, hyphen, locale_part2],
+                alignment=ft.MainAxisAlignment.CENTER
+            )
+            modal = ft.AlertDialog(
+                modal=True,
+                title=ft.Text("Изменить Locale"),
+                content=ft.Column([modal_content, save_button]),
+                actions_alignment=ft.MainAxisAlignment.CENTER,
+            )
+
+            page.overlay.append(modal)
+            modal.open = True
+            page.update()
+        except Exception as e:
+            print(e)
     def show_setting_tt_page():
         page.views.clear()
 
@@ -2254,4 +2683,7 @@ def main(page: ft.Page):
     page.go("/")
 
 
-ft.app(target=main)
+if __name__ == "__main__":
+    # Защищаем основной код от повторного запуска в каждом процессе
+    multiprocessing.freeze_support()  # Для Windows, чтобы предотвратить повторный запуск
+    ft.app(target=main)

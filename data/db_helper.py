@@ -1,5 +1,7 @@
 import aiosqlite
 import os
+import random
+
 
 # Путь к базе данных
 db_path = os.path.join("data", "data.db")
@@ -16,6 +18,17 @@ async def create_db():
             )
         ''')
         await db.commit()
+
+
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute('''
+                CREATE TABLE IF NOT EXISTS emails (
+                    id_email INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email TEXT NOT NULL
+                )
+            ''')
+        await db.commit()
+
     async with aiosqlite.connect(db_path) as db:
         await db.execute('''
             CREATE TABLE IF NOT EXISTS hashtags (
@@ -82,7 +95,8 @@ async def create_db():
                 geo TEXT UNIQUE,
                 proxy TEXT UNIQUE DEFAULT 'FALSE',
                 accs_type TEXT DEFAULT 'FALSE',
-                app_version TEXT DEFAULT '36.5.6'  
+                app_version TEXT DEFAULT '36.5.6',
+                locale TEXT UNIQUE  
             )
         ''')
         await db.commit()
@@ -91,7 +105,8 @@ async def create_db():
             CREATE TABLE IF NOT EXISTS videos (
                 id_video INTEGER PRIMARY KEY AUTOINCREMENT,
                 video_name TEXT NOT NULL,
-                video_path TEXT NOT NULL
+                video_path TEXT NOT NULL,
+                video_on_off INTEGER
             )
         ''')
     async with aiosqlite.connect(db_path) as db:
@@ -105,7 +120,7 @@ async def create_db():
             CREATE TABLE IF NOT EXISTS cookie_accounts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 x_device TEXT,
-                x_cookie TEXT,
+                x_cookie TEXT
             )
         ''')
         await db.commit()
@@ -120,18 +135,25 @@ async def create_db():
         await db.commit()
     async with aiosqlite.connect(db_path) as db:
         await db.execute('''
+            CREATE TABLE IF NOT EXISTS real_profile (
+                token_api TEXT UNIQUE
+            )
+        ''')
+        await db.commit()
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute('''
             CREATE TABLE IF NOT EXISTS uniq_confetti (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                speed REAL UNIQUE,
-                opacity REAL UNIQUE,
-                scale REAL UNIQUE,
-                duration REAL UNIQUE,
-                fade BOOLEAN UNIQUE,
-                light BOOLEAN UNIQUE,
-                dark BOOLEAN UNIQUE,
-                confetti BOOLEAN UNIQUE,
+                speed FLOAT UNIQUE,
+                opacity FLOAT UNIQUE,
+                scale FLOAT UNIQUE,
+                duration FLOAT UNIQUE,
+                fade FLOAT UNIQUE,
+                light FLOAT UNIQUE,
+                dark FLOAT UNIQUE,
+                confetti FLOAT UNIQUE,
                 confetti_amount INTEGER UNIQUE,
-                confetti_speed REAL UNIQUE
+                confetti_speed FLOAT UNIQUE
             )
         ''')
         await db.commit()
@@ -149,6 +171,7 @@ async def create_db():
     await insert_default_categories()
     await insert_setting_user()
     await insert_bizz_set()
+    await insert_real_profile()
 
     async with aiosqlite.connect(db_path) as db:
         await db.execute('''
@@ -164,7 +187,8 @@ async def create_db():
                 ava INTEGER,
                 bizz INTEGER,
                 hashtags INTEGER,
-                hashtag_count INTEGER
+                hashtag_count INTEGER,
+                uniq_bool INTEGER
             )
         ''')
         await db.commit()
@@ -191,7 +215,7 @@ async def insert_setting_user():
         if rows:
             print(123)
         else:
-            await db.execute('INSERT INTO settings  (geo,proxy,accs_type, app_version) VALUES (?, ?, ?, ?)',('KZ', 'FALSE', 'FALSE','36.4.2'))
+            await db.execute('INSERT INTO settings  (geo,proxy,accs_type, app_version, locale) VALUES (?, ?, ?, ?, ?)',('KZ', 'FALSE', 'FALSE','36.4.2', 'en-US'))
             await db.commit()
 
 async def insert_bizz_set():
@@ -202,6 +226,16 @@ async def insert_bizz_set():
             print(123)
         else:
             await db.execute('INSERT INTO biz (biz_name, biz_url) VALUES (?, ?)',('None', 'None'))
+            await db.commit()
+
+async def insert_real_profile():
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute('SELECT * FROM real_profile')
+        rows = await cursor.fetchall()
+        if rows:
+            pass
+        else:
+            await db.execute('INSERT INTO real_profile (token_api) VALUES (?)',('None',))
             await db.commit()
 async def insert_default_categories():
     """Функция для автоматического заполнения таблицы категорий, если она пуста"""
@@ -241,6 +275,23 @@ async def insert_default_categories():
             await db.executemany('INSERT INTO biz_category (biz_cat, biz_name) VALUES (?, ?)', categories)
             await db.commit()
 #USERNAMES
+
+async def get_username_zaliv():
+    async with aiosqlite.connect(db_path) as db:
+        # Получаем значение geo из единственной строки
+        cursor = await db.execute('SELECT username FROM usernames LIMIT 1')
+        username = await cursor.fetchone()  # Получаем только одно значение
+        await cursor.close()
+
+    return username[0] if username else None  # Возвращаем строку или None, если ничего не найдено
+
+async def delete_username(username):
+    async with aiosqlite.connect(db_path) as db:
+        # Удаляем имя пользователя из базы данных
+        await db.execute('DELETE FROM usernames WHERE username = ?', (username,))
+        await db.commit()  # Фиксируем изменения
+
+
 async def insert_usernames(usernames):
     """Асинхронное добавление списка юзернеймов в базу данных"""
     async with aiosqlite.connect(db_path) as db:
@@ -253,6 +304,27 @@ async def get_usernames():
         cursor = await db.execute('SELECT username FROM usernames')
         result = await cursor.fetchall()
         return [row[0] for row in result]  # Возвращаем список юзернеймов
+
+async def get_random_hashtags( count):
+    async with aiosqlite.connect(db_path) as db:
+        # Получаем все хэштеги из таблицы
+        cursor = await db.execute('SELECT hashtag FROM hashtags')
+        hashtags = await cursor.fetchall()  # Получаем список всех хэштегов
+        await cursor.close()
+
+    # Преобразуем список кортежей в простой список строк
+    hashtags = [hashtag[0] for hashtag in hashtags]
+
+    # Если количество хэштегов меньше, чем запрашиваемое, выбираем сколько есть
+    count = min(count, len(hashtags))
+
+    # Выбираем случайные хэштеги
+    random_hashtags = random.sample(hashtags, count)
+
+    # Формируем строку в виде "#Hash1 #Hash2 #Hash3"
+    hashtag_string = ' '.join([f'#{tag}' for tag in random_hashtags])
+
+    return hashtag_string
 
 async def delete_all_usernames():
     """Асинхронное удаление всех юзернеймов из базы данных"""
@@ -280,9 +352,25 @@ async def delete_all_hashtags():
     async with aiosqlite.connect(db_path) as db:
         await db.execute('DELETE FROM hashtags')
         await db.commit()
+async def get_single_description():
+    async with aiosqlite.connect(db_path) as db:
+        # Получаем одно случайное описание
+        cursor = await db.execute('SELECT description FROM descriptions ORDER BY RANDOM() LIMIT 1')
+        description = await cursor.fetchone()  # Получаем только одно описание
+        await cursor.close()
 
-
+    return description[0] if description else None
 #BIO
+async def get_bio_zaliv():
+    async with aiosqlite.connect(db_path) as db:
+        # Выбираем случайное значение из столбца bio
+        cursor = await db.execute('SELECT bio FROM bio ORDER BY RANDOM() LIMIT 1')
+        bio = await cursor.fetchone()  # Получаем только одно случайное значение
+        await cursor.close()
+
+    return bio[0] if bio else None  # Возвращаем строку или None, если ничего не найдено
+
+
 async def insert_bio(bio_entries):
     async with aiosqlite.connect(db_path) as db:
         for entry in bio_entries:
@@ -352,6 +440,17 @@ async def insert_nick(opi_entries):
             """, (entry,))
         await db.commit()
 
+
+async def get_nick_zaliv():
+    async with aiosqlite.connect(db_path) as db:
+        # Выбираем случайное значение из столбца bio
+        cursor = await db.execute('SELECT nickname FROM nicknames ORDER BY RANDOM() LIMIT 1')
+        bio = await cursor.fetchone()  # Получаем только одно случайное значение
+        await cursor.close()
+
+    return bio[0] if bio else None  # Возвращаем строку или None, если ничего не найдено
+
+
 async def get_nick():
     async with aiosqlite.connect(db_path) as db:
         cursor = await db.execute("SELECT * FROM nicknames")
@@ -399,6 +498,17 @@ async def get_mark_count():
         return count[0]
 
 #GEO
+
+async def get_geo_zaliv():
+    async with aiosqlite.connect(db_path) as db:
+        # Получаем значение geo из единственной строки
+        cursor = await db.execute('SELECT geo FROM settings LIMIT 1')
+        geo = await cursor.fetchone()  # Получаем только одно значение
+        await cursor.close()
+
+    return geo[0] if geo else None  # Возвращаем строку или None, если ничего не найдено
+
+
 # Функция для вставки или обновления GEO кода в таблицу settings
 async def insert_or_update_geo(geo_code):
     async with aiosqlite.connect(db_path) as db:
@@ -425,12 +535,48 @@ async def get_geo():
         rows = await cursor.fetchall()
         return rows
 
+async def get_current_locale():
+    """Retrieve the current locale from the database."""
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute("SELECT locale FROM settings LIMIT 1")
+        result = await cursor.fetchone()
+        return result[0] if result else "en-US"
+
+async def update_locale(new_locale):
+    """Update the locale in the database."""
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute("UPDATE settings SET locale = ?", (new_locale,))
+        await db.commit()
+
 #video
+# Функция для получения только одного video_name, где video_on_off = 0
+async def get_single_video_to_update():
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute('SELECT video_name FROM videos WHERE video_on_off = 0 LIMIT 1')
+        video_name = await cursor.fetchone()  # Получаем только одно видео
+        await cursor.close()
+    return video_name
+
+# Функция для обновления video_on_off на 1 для одного video_name
+async def update_single_video_status(video_name):
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute('UPDATE videos SET video_on_off = 1 WHERE video_name = ?', (video_name,))
+        await db.commit()
+async def update_single_video_status_back(video_name):
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute('UPDATE videos SET video_on_off = 0 WHERE video_name = ?', (video_name,))
+        await db.commit()
+
+async def update_single_video_status_back_all():
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute('UPDATE videos SET video_on_off = 0 WHERE video_on_off = ?', (1,))
+        await db.commit()
+
 async def insert_video(unique_name, save_location):
     async with aiosqlite.connect(db_path) as db:
             await db.execute('''
-                INSERT INTO videos (video_name, video_path) VALUES (?, ?)
-            ''', (unique_name, save_location))
+                INSERT INTO videos (video_name, video_path, video_on_off) VALUES (?, ?, ?)
+            ''', (unique_name, save_location, 0))
             await db.commit()
 
 async def delete_all_videos():
@@ -439,7 +585,62 @@ async def delete_all_videos():
         await db.execute('DELETE FROM videos')
         await db.commit()
 
+async def fetch_data():
+    async with aiosqlite.connect(db_path) as db:
+        # Выполняем запрос на получение всех данных из таблицы profile
+        cursor = await db.execute('SELECT * FROM profile')
+        # Извлекаем одну строку (если таблица содержит только одну строку)
+        info = await cursor.fetchone()
+        await cursor.close()
+    return info
+
 #proxy
+
+async def get_confetti_info():
+    async with aiosqlite.connect(db_path) as db:
+        # Выполняем запрос на получение всех данных из таблицы uniq_confetti
+        cursor = await db.execute('SELECT * FROM uniq_confetti LIMIT 1')
+        u_info = await cursor.fetchone()  # Получаем только одну строку
+        await cursor.close()
+
+    return u_info
+async def delete_proxy_by_id(proxy_id):
+    async with aiosqlite.connect(db_path) as db:
+        # Удаляем строку по её id
+        await db.execute('DELETE FROM proxy WHERE id = ?', (proxy_id,))
+        await db.commit()
+
+async def get_proxy():
+    async with aiosqlite.connect(db_path) as db:
+        # Получаем одну строку с полями id и proxy
+        cursor = await db.execute('SELECT id, proxy FROM proxy LIMIT 1')
+        result = await cursor.fetchone()  # Получаем только одну строку
+
+        if result:
+            proxy_id, proxy_value = result
+            return proxy_id, proxy_value
+        else:
+            return None, None  # Если строки нет
+
+
+async def delete_proxy_mobile_by_id(proxy_id):
+    async with aiosqlite.connect(db_path) as db:
+        # Удаляем строку по её id
+        await db.execute('DELETE FROM proxy_mobile WHERE id = ?', (proxy_id,))
+        await db.commit()
+
+async def get_proxy_mobile():
+    async with aiosqlite.connect(db_path) as db:
+        # Получаем одну строку с полями id и proxy
+        cursor = await db.execute('SELECT id, proxy FROM proxy_mobile LIMIT 1')
+        result = await cursor.fetchone()  # Получаем только одну строку
+
+        if result:
+            proxy_id, proxy_value = result
+            return proxy_id, proxy_value
+        else:
+            return None, None  # Если строки нет
+
 async def get_current_proxy_type():
     """Получаем текущее значение прокси из таблицы settings"""
     async with aiosqlite.connect(db_path) as db:
@@ -449,6 +650,15 @@ async def get_current_proxy_type():
             return row[0]  # Возвращаем текущее значение (TRUE/FALSE)
         else:
             return "FALSE"  # Возвращаем значение по умолчанию (обычные прокси)
+
+async def get_proxy_value():
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute('SELECT proxy FROM settings')
+        result = await cursor.fetchone()  # Получаем только одну строку
+        return result[0] if result else None  # Возвращаем значение proxy или None, если записи нет
+
+
+
 
 async def update_proxy_type(proxy_value):
     """Обновляем тип прокси в таблице settings (TRUE для мобильных, FALSE для обычных)"""
@@ -508,16 +718,43 @@ async def insert_cookie_accounts(accounts):
 
 
 # Получение обычных аккаунтов
+# Получение всех обычных аккаунтов
 async def get_ordinary_accounts():
     async with aiosqlite.connect(db_path) as db:
         cursor = await db.execute('SELECT account FROM ordinary_accounts')
-        return [row[0] for row in await cursor.fetchall()]
+        result = await cursor.fetchall()
+        return [row[0] for row in result]  # Возвращаем список обычных аккаунтов
 
-# Получение куки-аккаунтов
+
+# Функция для получения одного случайного значения mark из таблицы
+async def get_single_mark():
+    async with aiosqlite.connect(db_path) as db:
+        # Получаем одно случайное значение из колонки mark
+        cursor = await db.execute('SELECT mark FROM marks ORDER BY RANDOM() LIMIT 1')
+        mark = await cursor.fetchone()  # Получаем только одно значение
+        await cursor.close()
+
+    return mark[0] if mark else None  # Возвращаем строку или None, если ничего не найдено
+
+
+async def get_single_ordinary_account():
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute('SELECT account FROM ordinary_accounts LIMIT 1')
+        result = await cursor.fetchone()  # Получаем только одну строку
+        return result[0] if result else None  # Возвращаем аккаунт или None, если записей нет
+
+async def delete_ordinary_account(account):
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute('DELETE FROM ordinary_accounts WHERE account = ?', (account,))
+        await db.commit()
+
+
+# Получение всех куки-аккаунтов
 async def get_cookie_accounts():
     async with aiosqlite.connect(db_path) as db:
-        cursor = await db.execute('SELECT account FROM cookie_accounts')
-        return [row[0] for row in await cursor.fetchall()]
+        cursor = await db.execute('SELECT x_device, x_cookie FROM cookie_accounts')
+        result = await cursor.fetchall()
+        return [f"Device: {row[0]}, Cookie: {row[1]}" for row in result]  # Возвращаем список куки-аккаунтов
 
 # Удаление всех обычных аккаунтов
 async def delete_all_ordinary_accounts():
@@ -550,6 +787,27 @@ async def update_accs_type(accs_type_value):
             ''', (accs_type_value,))
         await db.commit()
 
+# Функция для получения x_device и x_cookie по id
+async def get_first_device_and_cookie():
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute('''
+            SELECT id, x_device, x_cookie FROM cookie_accounts LIMIT 1
+        ''')
+        result = await cursor.fetchone()
+        if result:
+            row_id, x_device, x_cookie = result
+            return row_id, x_device, x_cookie
+        else:
+            return None
+
+# Функция для удаления строки по id
+async def delete_row_cookie(row_id):
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute('''
+            DELETE FROM cookie_accounts WHERE id = ?
+        ''', (row_id,))
+        await db.commit()
+
 
 #biz
 '''async def insert_or_update_biz_link(biz_name):
@@ -560,6 +818,39 @@ async def update_accs_type(accs_type_value):
             ON CONFLICT(biz_name) DO NOTHING
         '', (biz_name,))
         await db.commit()'''
+
+
+async def get_biz_cat_by_name(biz_name_value):
+    async with aiosqlite.connect(db_path) as db:
+        # Выполняем запрос на выбор biz_cat, где biz_name соответствует заданному значению
+        cursor = await db.execute('SELECT biz_cat FROM biz_category WHERE biz_name = ?', (biz_name_value,))
+        biz_cat = await cursor.fetchone()  # Получаем только одно значение
+        await cursor.close()
+
+    return biz_cat[0] if biz_cat else None
+
+async def get_random_biz_name():
+    async with aiosqlite.connect(db_path) as db:
+        # Получаем случайное значение из столбца biz_name
+        cursor = await db.execute('SELECT biz_name FROM biz LIMIT 1')
+        biz_name = await cursor.fetchone()  # Получаем только одно случайное значение
+        await cursor.close()
+
+    return biz_name[0] if biz_name else None  # Возвращаем строку или None, если ничего не найдено
+
+
+async def get_random_biz_url():
+    async with aiosqlite.connect(db_path) as db:
+        # Получаем случайное значение из столбца biz_url
+        cursor = await db.execute('SELECT biz_url FROM biz LIMIT 1')
+        biz_url = await cursor.fetchone()  # Получаем только одно случайное значение
+        await cursor.close()
+
+    return biz_url[0] if biz_url else None  # Возвращаем строку или None, если ничего не найдено
+
+
+# Возвращаем строку или None, если ничего не найдено
+
 
 async def update_biz_link(biz_url):
     async with aiosqlite.connect(db_path) as db:
@@ -612,7 +903,7 @@ async def insert_or_update_biz_url(biz_url):
         await db.commit()
 #profile
 
-async def save_or_update_profile(stream_count, fill_type, description, bio, username, nickname, marks, ava, bizz, hashtags, hashtag_count):
+async def save_or_update_profile(stream_count, fill_type, description, bio, username, nickname, marks, ava, bizz, hashtags, hashtag_count, uniq_bool):
     async with aiosqlite.connect(db_path) as db:
         # Проверка, существует ли запись с таким username
         cursor = await db.execute('SELECT COUNT(*) FROM profile WHERE username = ?', (username,))
@@ -622,15 +913,27 @@ async def save_or_update_profile(stream_count, fill_type, description, bio, user
             # Если запись существует, выполняем обновление
             await db.execute('''
                 UPDATE profile
-                SET stream_count = ?, fill_type = ?, description = ?, bio = ?, nickname = ?, marks = ?, ava = ?, bizz = ?, hashtags = ?, hashtag_count = ?
-                WHERE username = ?
-            ''', (stream_count, fill_type, description, bio, nickname, marks, ava, bizz, hashtags, hashtag_count, username))
+                SET stream_count = ?, fill_type = ?, description = ?, bio = ?, nickname = ?, marks = ?, ava = ?, bizz = ?, hashtags = ?, hashtag_count = ?, username = ?, uniq_bool = ?
+            ''', (stream_count, fill_type, description, bio, nickname, marks, ava, bizz, hashtags, hashtag_count, username, uniq_bool))
         else:
             # Если записи нет, выполняем вставку
             await db.execute('''
-                INSERT INTO profile (username, stream_count, fill_type, description, bio, nickname, marks, ava, bizz, hashtags, hashtag_count)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (username, stream_count, fill_type, description, bio, nickname, marks, ava, bizz, hashtags, hashtag_count))
+                INSERT INTO profile (username, stream_count, fill_type, description, bio, nickname, marks, ava, bizz, hashtags, hashtag_count, uniq_bool)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (username, stream_count, fill_type, description, bio, nickname, marks, ava, bizz, hashtags, hashtag_count, uniq_bool))
+        await db.commit()
+
+async def get_token():
+    """Retrieve the current token from the database."""
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute("SELECT token_api FROM real_profile LIMIT 1")
+        result = await cursor.fetchone()
+        return result[0] if result else None
+
+async def update_token(new_token):
+    """Update the token in the database."""
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute("UPDATE real_profile SET token_api = ?", (new_token,))
         await db.commit()
 
 async def get_profile_data():
@@ -646,6 +949,19 @@ async def get_current_version():
         row = await cursor.fetchone()
         return row[0] if row else None
 
+async def get_app_version():
+    async with aiosqlite.connect(db_path) as db:
+        # Получаем значение app_version из таблицы settings
+        cursor = await db.execute('SELECT app_version FROM settings LIMIT 1')
+        result = await cursor.fetchone()  # Получаем только одну строку
+
+        if result:
+            return result[0]  # Возвращаем значение app_version
+        else:
+            result = '36.4.2'
+            return result  # Если строка не найдена
+
+
 
 async def update_version(new_version):
     async with aiosqlite.connect(db_path) as db:
@@ -654,18 +970,29 @@ async def update_version(new_version):
 
 #Uniq
 async def insert_uniq_confetti(speed, opacity, scale, duration, fade, light, dark, confetti, confetti_amount, confetti_speed):
-    async with aiosqlite.connect(db_path) as db:
-        cursor = await db.execute("SELECT COUNT(*) FROM uniq_confetti")
-        count = await cursor.fetchone()
-        if count:
-            await db.execute('UPDATE uniq_confetti SET speed = ?, opacity = ?, scale = ?, duration = ?, fade = ?, light = ?, dark = ?, confetti = ?, confetti_amount = ?, confetti_speed = ?', (
-            speed, opacity, scale, duration, fade, light, dark, confetti, confetti_amount, confetti_speed))
-        else:
-            await db.execute('''
-                INSERT INTO uniq_confetti (speed, opacity, scale, duration, fade, light, dark, confetti, confetti_amount, confetti_speed)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (speed, opacity, scale, duration, fade, light, dark, confetti, confetti_amount, confetti_speed))
-        await db.commit()
+    try:
+        # Форматируем числа, чтобы оставить только две цифры после запятой
+        speed = round(float(speed), 2)
+        opacity = round(float(opacity), 2)
+        scale = round(float(scale), 2)
+        duration = round(float(duration), 2)
+        confetti_speed = round(float(confetti_speed), 2)
+
+        async with aiosqlite.connect(db_path) as db:
+            cursor = await db.execute("SELECT COUNT(*) FROM uniq_confetti")
+            count = await cursor.fetchone()
+            if count[0] > 0:  # Проверяем, что есть записи
+                await db.execute('UPDATE uniq_confetti SET speed = ?, opacity = ?, scale = ?, duration = ?, fade = ?, light = ?, dark = ?, confetti = ?, confetti_amount = ?, confetti_speed = ?',
+                                 (speed, opacity, scale, duration, fade, light, dark, confetti, confetti_amount, confetti_speed))
+            else:
+                await db.execute('''
+                    INSERT INTO uniq_confetti (speed, opacity, scale, duration, fade, light, dark, confetti, confetti_amount, confetti_speed)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (speed, opacity, scale, duration, fade, light, dark, confetti, confetti_amount, confetti_speed))
+            await db.commit()
+    except Exception as e:
+        print(f"Ошибка при сохранении данных: {e}")
+
 
 async def get_uniq_confetti():
     async with aiosqlite.connect(db_path) as db:
@@ -724,4 +1051,40 @@ async def get_carousel_settings():
             }
         return None
 
+#Почта
+# Функция для вставки почт в базу данных
+async def insert_emails(emails):
+    async with aiosqlite.connect(db_path) as db:
+        await db.executemany('INSERT INTO emails (email) VALUES (?)', [(email,) for email in emails])
+        await db.commit()
 
+# Функция для получения всех почт
+async def get_emails():
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute('SELECT email FROM emails')
+        result = await cursor.fetchall()
+        return [row[0] for row in result]
+
+# Функция для удаления всех почт
+async def delete_all_emails():
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute('DELETE FROM emails')
+        await db.commit()
+
+async def get_one_email():
+    async with aiosqlite.connect(db_path) as db:
+        async with db.execute('SELECT email FROM emails LIMIT 1') as cursor:
+            email_row = await cursor.fetchone()
+            if email_row:
+                email = email_row[0]
+                print(f"Получена почта: {email}")
+                return email
+            else:
+                print("В таблице нет записей.")
+                return None
+
+async def delete_email(email):
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute('DELETE FROM emails WHERE email = ?', (email,))
+        await db.commit()
+        print(f"Строка с почтой {email} удалена.")
